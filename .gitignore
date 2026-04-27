@@ -1,0 +1,21 @@
+# Local source lecture PDFs are intentionally not published.
+*.pdf
+!docs/**/*.pdf
+
+# Root build duplicates; the Pages site lives in docs/.
+/algorithm_crash_guide_zh.html
+/algorithm_crash_guide_zh.pdf
+
+# Local visual QA screenshots.
+preview*.jpg
+mobile*.jpg
+desktop*.jpg
+
+# Python / tooling noise.
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# OS/editor files.
+.DS_Store
+Thumbs.db

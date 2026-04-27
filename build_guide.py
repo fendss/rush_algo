@@ -1,0 +1,216 @@
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+from playwright.sync_api import sync_playwright
+
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "algorithm_crash_guide_zh.md"
+HTML = ROOT / "algorithm_crash_guide_zh.html"
+PDF = ROOT / "algorithm_crash_guide_zh.pdf"
+CSS = ROOT / "guide_assets" / "guide.css"
+DOCS = ROOT / "docs"
+
+
+def run_pandoc() -> None:
+    cmd = [
+        "pandoc",
+        str(SRC),
+        "--from=markdown+tex_math_dollars+pipe_tables+fenced_code_attributes+backtick_code_blocks+raw_html",
+        "--to=html5",
+        "--standalone",
+        "--toc",
+        "--toc-depth=3",
+        "--metadata",
+        "pagetitle=算法课复习讲义",
+        "--syntax-highlighting=tango",
+        "--mathjax=https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js",
+        f"--css={CSS.relative_to(ROOT).as_posix()}",
+        "--output",
+        str(HTML),
+    ]
+    subprocess.run(cmd, cwd=ROOT, check=True)
+
+
+def polish_html() -> None:
+    html = HTML.read_text(encoding="utf-8")
+    html = re.sub(r"<html[^>]*>", '<html lang="zh-CN">', html, count=1)
+    if 'name="viewport"' not in html:
+        html = html.replace(
+            "</head>",
+            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            "</head>",
+            1,
+        )
+    if 'name="theme-color"' not in html:
+        html = html.replace("</head>", '<meta name="theme-color" content="#315f8c">\n</head>', 1)
+
+    cover = """
+<div id="top"></div>
+<div class="reader-progress" aria-hidden="true"><span></span></div>
+<nav class="reader-tools" aria-label="阅读导航">
+  <a href="#TOC">目录</a>
+  <a href="#复杂度与分析">速查</a>
+  <a href="#经典例题与-c-python-模板">例题</a>
+  <a href="#高频代码填空题">填空</a>
+  <a href="#逐讲细读">细读</a>
+  <a href="algorithm_crash_guide_zh.pdf">PDF</a>
+</nav>
+<section class="cover">
+  <div class="cover-kicker">Algorithm Notes</div>
+  <h1>算法课复习讲义</h1>
+  <p class="cover-subtitle">
+    基于当前目录 18 份课件整理。内容按“速查、图解、逐讲细读、题型训练、附录清单”组织，
+    兼顾考前复习和从零补课。
+  </p>
+  <div class="cover-meta">
+    <div><strong>18 份 PDF</strong><span>逐份覆盖</span></div>
+    <div><strong>C++ / Python</strong><span>模板代码</span></div>
+    <div><strong>Mermaid 图解</strong><span>辅助理解</span></div>
+    <div><strong>HTML / PDF</strong><span>适合阅读与打印</span></div>
+  </div>
+</section>
+"""
+    html = html.replace("<body>", "<body>\n" + cover, 1)
+
+    # Pandoc keeps Mermaid as fenced code blocks. Convert them in-browser so the
+    # source Markdown stays readable and the HTML/PDF get diagrams.
+    mermaid_script = r"""
+<script src="guide_assets/diagrams.js"></script>
+<script>
+  (() => {
+    const bar = document.querySelector(".reader-progress span");
+    const links = Array.from(document.querySelectorAll(".reader-tools a[href^='#']"));
+    const sections = links
+      .map((a) => {
+        const id = decodeURIComponent(a.getAttribute("href").slice(1));
+        return [a, document.getElementById(id)];
+      })
+      .filter(([, section]) => section);
+
+    function updateReadingState() {
+      const doc = document.documentElement;
+      const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+      if (bar) bar.style.width = `${Math.min(100, Math.max(0, window.scrollY / max * 100))}%`;
+
+      let active = null;
+      for (const [a, section] of sections) {
+        if (section.getBoundingClientRect().top <= 90) active = a;
+      }
+      links.forEach((a) => a.classList.toggle("is-active", a === active));
+    }
+
+    updateReadingState();
+    window.addEventListener("scroll", updateReadingState, { passive: true });
+    window.addEventListener("resize", updateReadingState);
+  })();
+</script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+  window.__guideRenderReady = (async () => {
+    window.enhanceGuideTextDiagrams?.();
+
+    document.querySelectorAll("pre.mermaid, pre > code.language-mermaid").forEach((node) => {
+      const pre = node.closest("pre") || node;
+      const div = document.createElement("div");
+      div.className = "mermaid";
+      div.textContent = node.textContent;
+      pre.replaceWith(div);
+    });
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "base",
+      securityLevel: "loose",
+      flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" },
+      themeVariables: {
+        fontFamily: "Microsoft YaHei, PingFang SC, Segoe UI, sans-serif",
+        primaryColor: "#edf3f8",
+        primaryBorderColor: "#315f8c",
+        primaryTextColor: "#17202a",
+        lineColor: "#667085",
+        secondaryColor: "#fff7ed",
+        tertiaryColor: "#f6f8fb"
+      }
+    });
+
+    await mermaid.run({ querySelector: ".mermaid" });
+
+    if (window.MathJax?.startup?.promise) {
+      await window.MathJax.startup.promise;
+    }
+  })();
+</script>
+"""
+    html = html.replace("</body>", mermaid_script + "\n</body>", 1)
+
+    # Remove accidental doubled blank paragraphs generated by very loose source
+    # spacing without changing the Markdown itself.
+    html = re.sub(r"\n{3,}", "\n\n", html)
+    HTML.write_text(html, encoding="utf-8")
+
+
+def build_docs() -> None:
+    DOCS.mkdir(exist_ok=True)
+    (DOCS / ".nojekyll").write_text("", encoding="utf-8")
+    shutil.copy2(HTML, DOCS / "index.html")
+    shutil.copy2(PDF, DOCS / PDF.name)
+
+    src_assets = ROOT / "guide_assets"
+    dst_assets = DOCS / "guide_assets"
+    if dst_assets.exists():
+        shutil.rmtree(dst_assets)
+    shutil.copytree(src_assets, dst_assets)
+
+
+def export_pdf() -> None:
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 1800})
+        page.goto(HTML.as_uri(), wait_until="networkidle")
+        page.evaluate(
+            """async () => {
+                if (window.__guideRenderReady) await window.__guideRenderReady;
+                if (window.MathJax?.startup?.promise) await window.MathJax.startup.promise;
+            }"""
+        )
+        page.emulate_media(media="print")
+        page.pdf(
+            path=str(PDF),
+            format="A4",
+            print_background=True,
+            display_header_footer=True,
+            margin={
+                "top": "11mm",
+                "right": "10mm",
+                "bottom": "12mm",
+                "left": "10mm",
+            },
+            header_template="<div></div>",
+            footer_template="""
+              <div style="width:100%;font-size:8px;color:#7a8491;
+                          padding:0 10mm;font-family:Microsoft YaHei,Arial,sans-serif;
+                          display:flex;justify-content:space-between;">
+                <span>算法课复习讲义</span>
+                <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
+              </div>
+            """,
+        )
+        browser.close()
+
+
+def main() -> None:
+    run_pandoc()
+    polish_html()
+    export_pdf()
+    build_docs()
+    print(f"HTML: {HTML}")
+    print(f"PDF : {PDF}")
+    print(f"Docs: {DOCS}")
+
+
+if __name__ == "__main__":
+    main()
