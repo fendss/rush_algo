@@ -6,6 +6,10 @@ Live site after GitHub Pages deployment:
 
 https://fendss.github.io/rush_algo/
 
+The site is published from the `gh-pages` branch. The source Markdown and build
+script live on `main`; the generated web output lives under `docs/` and is also
+pushed to `gh-pages` as the site root.
+
 ## Files
 
 - `algorithm_crash_guide_zh.md`: source Markdown guide.
