@@ -50,14 +50,6 @@ def polish_html() -> None:
     cover = """
 <div id="top"></div>
 <div class="reader-progress" aria-hidden="true"><span></span></div>
-<nav class="reader-tools" aria-label="阅读导航">
-  <a href="#TOC">目录</a>
-  <a href="#复杂度与分析">速查</a>
-  <a href="#经典例题与-c-python-模板">例题</a>
-  <a href="#高频代码填空题">填空</a>
-  <a href="#逐讲细读">细读</a>
-  <a href="algorithm_crash_guide_zh.pdf">PDF</a>
-</nav>
 <section class="cover">
   <div class="cover-kicker">Algorithm Notes</div>
   <h1>算法课复习讲义</h1>
@@ -72,6 +64,14 @@ def polish_html() -> None:
     <div><strong>HTML / PDF</strong><span>适合阅读与打印</span></div>
   </div>
 </section>
+<nav class="reader-tools" aria-label="阅读导航">
+  <a href="#TOC">目录</a>
+  <a href="#复杂度与分析">速查</a>
+  <a href="#经典例题与-c-python-模板">例题</a>
+  <a href="#高频代码填空题">填空</a>
+  <a href="#逐讲细读">细读</a>
+  <a href="algorithm_crash_guide_zh.pdf">PDF</a>
+</nav>
 """
     html = html.replace("<body>", "<body>\n" + cover, 1)
 
