@@ -12,6 +12,7 @@ HTML = ROOT / "algorithm_crash_guide_zh.html"
 PDF = ROOT / "algorithm_crash_guide_zh.pdf"
 CSS = ROOT / "guide_assets" / "guide.css"
 DOCS = ROOT / "docs"
+ASSET_VERSION = "20260428-mobile-nav"
 
 
 def run_pandoc() -> None:
@@ -37,6 +38,10 @@ def run_pandoc() -> None:
 def polish_html() -> None:
     html = HTML.read_text(encoding="utf-8")
     html = re.sub(r"<html[^>]*>", '<html lang="zh-CN">', html, count=1)
+    html = html.replace(
+        'href="guide_assets/guide.css"',
+        f'href="guide_assets/guide.css?v={ASSET_VERSION}"',
+    )
     if 'name="viewport"' not in html:
         html = html.replace(
             "</head>",
@@ -78,7 +83,7 @@ def polish_html() -> None:
     # Pandoc keeps Mermaid as fenced code blocks. Convert them in-browser so the
     # source Markdown stays readable and the HTML/PDF get diagrams.
     mermaid_script = r"""
-<script src="guide_assets/diagrams.js"></script>
+<script src="guide_assets/diagrams.js?v=20260428-mobile-nav"></script>
 <script>
   (() => {
     const bar = document.querySelector(".reader-progress span");
